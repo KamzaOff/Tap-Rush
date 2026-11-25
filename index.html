@@ -11,10 +11,11 @@
       -webkit-user-select: none;
       -webkit-tap-highlight-color: transparent;
     }
-    body {
+    html, body {
       margin: 0;
-      width: 100vw;
-      height: 100vh;
+      padding: 0;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
       background: #09090b;
       color: #f4f4f5;
@@ -25,6 +26,7 @@
       inset: 0;
       width: 100%;
       height: 100%;
+      display: block;
       image-rendering: pixelated;
       touch-action: none;
     }
@@ -40,18 +42,18 @@
       z-index: 10;
     }
     .hud-box {
-      background: rgba(18, 18, 23, 0.85);
+      background: rgba(18, 18, 23, 0.88);
       border: 2px solid #dc2626;
       padding: 6px 10px;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       font-weight: bold;
     }
     #crosshair {
       position: fixed;
       left: 50%;
       top: 50%;
-      width: 14px;
-      height: 14px;
+      width: 16px;
+      height: 16px;
       transform: translate(-50%, -50%);
       pointer-events: none;
       z-index: 10;
@@ -62,15 +64,15 @@
       background: #ef4444;
     }
     #crosshair::before {
-      left: 6px;
+      left: 7px;
       top: 0;
       width: 2px;
-      height: 14px;
+      height: 16px;
     }
     #crosshair::after {
-      top: 6px;
+      top: 7px;
       left: 0;
-      width: 14px;
+      width: 16px;
       height: 2px;
     }
     #stickZone {
@@ -80,7 +82,7 @@
       width: 124px;
       height: 124px;
       border-radius: 50%;
-      background: rgba(24, 24, 27, 0.65);
+      background: rgba(24, 24, 27, 0.7);
       border: 2px solid rgba(244, 244, 245, 0.25);
       z-index: 20;
       touch-action: none;
@@ -92,17 +94,17 @@
       width: 44px;
       height: 44px;
       border-radius: 50%;
-      background: rgba(239, 68, 68, 0.85);
+      background: rgba(239, 68, 68, 0.9);
       border: 2px solid #fca5a5;
     }
     #fireBtn {
       position: fixed;
       right: 22px;
-      bottom: 26px;
+      bottom: 24px;
       width: 86px;
       height: 86px;
       border-radius: 50%;
-      background: rgba(185, 28, 28, 0.9);
+      background: rgba(185, 28, 28, 0.92);
       border: 3px solid #fca5a5;
       color: #fff;
       font-family: monospace, sans-serif;
@@ -127,7 +129,6 @@
       padding: 20px;
       gap: 16px;
       z-index: 50;
-      touch-action: auto;
     }
     #startBtn {
       background: #dc2626;
@@ -157,9 +158,9 @@
 
   <div id="startScreen">
     <h1 style="margin:0;color:#ef4444;letter-spacing:2px;">TAP RUSH</h1>
-    <p style="margin:0;max-width:340px;color:#d4d4d8;line-height:1.4;">
+    <p style="margin:0;max-width:340px;color:#d4d4d8;line-height:1.45;">
       Stick gauche : avancer / tourner<br>
-      Glisser à droite : viser<br>
+      Glisser sur l'écran : viser<br>
       Bouton TIR : éliminer les cibles rouges
     </p>
     <button id="startBtn" type="button">JOUER</button>
@@ -181,6 +182,7 @@
     canvas.width = W;
     canvas.height = H;
 
+    // 1 = mur rouge brique, 2 = mur gris métal
     const map = [
       [2,2,2,2,2,2,2,2,2,2,2,2],
       [2,0,0,0,0,0,0,0,0,0,0,2],
@@ -196,8 +198,8 @@
     ];
 
     let player = {
-      x: 2.5,
-      y: 8.5,
+      x: 5.5,
+      y: 7.5,
       angle: -Math.PI / 2,
       hp: 100,
       kills: 0,
@@ -211,14 +213,11 @@
         [2.5, 2.5], [8.5, 2.5], [5.5, 3.5],
         [2.5, 6.5], [8.5, 6.5], [5.5, 8.5]
       ];
-      enemies = spots.map(([x, y]) => ({
-        x, y, alive: true
-      }));
+      enemies = spots.map(([x, y]) => ({ x, y, alive: true }));
     }
     spawnEnemies();
 
     let running = false;
-    let gameStartedOnce = false;
     let moveInput = { x: 0, y: 0 };
     let stickTouchId = null;
     let lookTouchId = null;
@@ -226,24 +225,12 @@
     const keys = {};
 
     function launchGame() {
-      if (gameStartedOnce) return;
-      gameStartedOnce = true;
       running = true;
       startScreen.style.display = "none";
     }
 
-    startBtn.addEventListener("pointerdown", (e) => {
-      e.stopPropagation();
-      launchGame();
-    });
-    startBtn.addEventListener("touchstart", (e) => {
-      e.stopPropagation();
-      launchGame();
-    }, { passive: true });
-    startBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      launchGame();
-    });
+    startBtn.addEventListener("click", launchGame);
+    startBtn.addEventListener("pointerup", launchGame);
 
     stickZone.addEventListener("touchstart", (e) => {
       if (!running || stickTouchId !== null) return;
@@ -254,13 +241,14 @@
 
     window.addEventListener("touchmove", (e) => {
       if (!running) return;
-      for (const t of e.changedTouches) {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
         if (t.identifier === stickTouchId) {
           updateStick(t.clientX, t.clientY);
         } else if (t.identifier === lookTouchId) {
           const dx = t.clientX - lastLookX;
           lastLookX = t.clientX;
-          player.angle += dx * 0.008;
+          player.angle += dx * 0.01;
         }
       }
     }, { passive: true });
@@ -273,23 +261,21 @@
       stickKnob.style.top = "40px";
     }
 
-    window.addEventListener("touchend", (e) => {
-      for (const t of e.changedTouches) {
+    function releaseTouches(e) {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
         if (t.identifier === stickTouchId) resetStick();
         if (t.identifier === lookTouchId) lookTouchId = null;
       }
-    });
+    }
 
-    window.addEventListener("touchcancel", (e) => {
-      for (const t of e.changedTouches) {
-        if (t.identifier === stickTouchId) resetStick();
-        if (t.identifier === lookTouchId) lookTouchId = null;
-      }
-    });
+    window.addEventListener("touchend", releaseTouches);
+    window.addEventListener("touchcancel", releaseTouches);
 
     canvas.addEventListener("touchstart", (e) => {
       if (!running) return;
-      for (const t of e.changedTouches) {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
         if (t.identifier !== stickTouchId && lookTouchId === null) {
           lookTouchId = t.identifier;
           lastLookX = t.clientX;
@@ -336,7 +322,7 @@
         while (diff > Math.PI) diff -= Math.PI * 2;
         while (diff < -Math.PI) diff += Math.PI * 2;
 
-        if (Math.abs(diff) < 0.14 && dist < bestDist) {
+        if (Math.abs(diff) < 0.16 && dist < bestDist) {
           bestDist = dist;
           hitTarget = en;
         }
@@ -353,12 +339,12 @@
             [2.5, 6.5], [8.5, 6.5], [5.5, 8.5]
           ];
           const [nx, ny] = free[Math.floor(Math.random() * free.length)];
-          if (Math.hypot(nx - player.x, ny - player.y) > 2.2) {
+          if (Math.hypot(nx - player.x, ny - player.y) > 2.0) {
             hitTarget.x = nx;
             hitTarget.y = ny;
             hitTarget.alive = true;
           }
-        }, 2500);
+        }, 2000);
       }
     }
 
@@ -369,7 +355,7 @@
     fireBtn.addEventListener("mousedown", shoot);
 
     function canMove(nx, ny) {
-      const r = 0.25;
+      const r = 0.24;
       const checks = [
         [nx - r, ny - r], [nx + r, ny - r],
         [nx - r, ny + r], [nx + r, ny + r]
@@ -377,7 +363,7 @@
       for (const [cx, cy] of checks) {
         const mx = Math.floor(cx);
         const my = Math.floor(cy);
-        if (!map[my] || !map[my][mx] || map[my][mx] !== 0) {
+        if (!map[my] || map[my][mx] === undefined || map[my][mx] !== 0) {
           return false;
         }
       }
@@ -395,8 +381,8 @@
       if (keys["arrowleft"] || keys["q"] || keys["a"]) turn -= 1;
       if (keys["arrowright"] || keys["d"]) turn += 1;
 
-      player.angle += turn * 0.045;
-      const speed = 0.055;
+      player.angle += turn * 0.05;
+      const speed = 0.06;
       const nx = player.x + Math.cos(player.angle) * forward * speed;
       const ny = player.y + Math.sin(player.angle) * forward * speed;
 
@@ -408,14 +394,14 @@
         const dx = player.x - en.x;
         const dy = player.y - en.y;
         const dist = Math.hypot(dx, dy);
-        if (dist > 1.1 && dist < 8) {
-          const ex = en.x + (dx / dist) * 0.014;
-          const ey = en.y + (dy / dist) * 0.014;
+        if (dist > 1.0 && dist < 8) {
+          const ex = en.x + (dx / dist) * 0.015;
+          const ey = en.y + (dy / dist) * 0.015;
           if (canMove(ex, ey)) {
             en.x = ex;
             en.y = ey;
           }
-        } else if (dist <= 1.1) {
+        } else if (dist <= 1.0) {
           player.hp = Math.max(0, player.hp - 0.15);
           hpEl.textContent = Math.ceil(player.hp);
           if (player.hp <= 0) {
@@ -423,25 +409,34 @@
             player.kills = 0;
             hpEl.textContent = 100;
             killsEl.textContent = 0;
-            player.x = 2.5;
-            player.y = 8.5;
+            player.x = 5.5;
+            player.y = 7.5;
             spawnEnemies();
           }
         }
       }
 
       if (player.shootFlash > 0) player.shootFlash--;
-      if (player.recoil > 0) player.recoil *= 0.8;
+      if (player.recoil > 0) player.recoil *= 0.78;
     }
 
     function render() {
-      ctx.fillStyle = "#18181b";
+      // Plafond sombre et sol rétro
+      ctx.fillStyle = "#111115";
       ctx.fillRect(0, 0, W, H / 2);
-      ctx.fillStyle = "#27272a";
+      ctx.fillStyle = "#222229";
       ctx.fillRect(0, H / 2, W, H / 2);
 
+      // Lignes de sol horizontales pour la sensation de profondeur
+      ctx.fillStyle = "#2f2f38";
+      for (let y = H / 2 + 6; y < H; y += 8) {
+        ctx.fillRect(0, y, W, 1);
+      }
+
       const fov = Math.PI / 3;
-      const zBuffer = new Array(W).fill(999);
+      const zBuffer = new Array(W).fill(20);
+      const step = 0.05;
+      const maxSteps = 260;
 
       for (let col = 0; col < W; col++) {
         const cameraX = (2 * col) / W - 1;
@@ -449,35 +444,38 @@
         const rayDirX = Math.cos(rayAngle);
         const rayDirY = Math.sin(rayAngle);
 
-        let dist = 0;
-        let hit = 0;
-        const step = 0.04;
+        let dist = 0.05;
+        let hit = 2;
 
-        while (hit === 0 && dist < 16) {
+        for (let s = 0; s < maxSteps; s++) {
           dist += step;
           const tx = Math.floor(player.x + rayDirX * dist);
           const ty = Math.floor(player.y + rayDirY * dist);
           if (!map[ty] || map[ty][tx] === undefined) {
             hit = 2;
-          } else if (map[ty][tx] > 0) {
+            break;
+          }
+          if (map[ty][tx] > 0) {
             hit = map[ty][tx];
+            break;
           }
         }
 
-        const perpDist = Math.max(0.05, dist * Math.cos(rayAngle - player.angle));
+        const perpDist = Math.max(0.08, dist * Math.cos(rayAngle - player.angle));
         zBuffer[col] = perpDist;
         const wallH = Math.min(H * 2, Math.floor(H / perpDist));
         const drawStart = Math.floor((H - wallH) / 2);
+        const shade = Math.max(0.28, Math.min(1, 1.15 - perpDist / 11));
 
-        const shade = Math.max(0.25, 1 - perpDist / 12);
         if (hit === 1) {
-          ctx.fillStyle = `rgb(${Math.floor(185 * shade)}, ${Math.floor(35 * shade)}, ${Math.floor(35 * shade)})`;
+          ctx.fillStyle = `rgb(${Math.floor(200 * shade)}, ${Math.floor(38 * shade)}, ${Math.floor(38 * shade)})`;
         } else {
-          ctx.fillStyle = `rgb(${Math.floor(90 * shade)}, ${Math.floor(95 * shade)}, ${Math.floor(115 * shade)})`;
+          ctx.fillStyle = `rgb(${Math.floor(110 * shade)}, ${Math.floor(116 * shade)}, ${Math.floor(136 * shade)})`;
         }
         ctx.fillRect(col, drawStart, 1, wallH);
       }
 
+      // Ennemis rouges avec visière jaune
       const sortedEnemies = enemies
         .filter((e) => e.alive)
         .map((e) => ({ ...e, dist: Math.hypot(e.x - player.x, e.y - player.y) }))
@@ -490,26 +488,27 @@
         while (angle > Math.PI) angle -= Math.PI * 2;
         while (angle < -Math.PI) angle += Math.PI * 2;
 
-        if (Math.abs(angle) < fov * 0.7 && en.dist > 0.2) {
+        if (Math.abs(angle) < fov * 0.75 && en.dist > 0.25) {
           const screenX = Math.floor(((angle / (fov / 2)) + 1) * (W / 2));
-          const size = Math.min(H * 1.4, Math.floor((H * 0.75) / en.dist));
+          const size = Math.min(H * 1.3, Math.max(6, Math.floor((H * 0.72) / en.dist)));
           const top = Math.floor(H / 2 - size / 2);
           const left = Math.floor(screenX - size / 2);
-
           const midCol = Math.max(0, Math.min(W - 1, screenX));
+
           if (en.dist < zBuffer[midCol]) {
             ctx.fillStyle = "#ef4444";
-            ctx.fillRect(left + size * 0.2, top + size * 0.15, size * 0.6, size * 0.7);
+            ctx.fillRect(left + size * 0.2, top + size * 0.15, size * 0.6, size * 0.72);
             ctx.fillStyle = "#fef08a";
-            ctx.fillRect(left + size * 0.35, top + size * 0.3, size * 0.3, size * 0.15);
+            ctx.fillRect(left + size * 0.34, top + size * 0.3, size * 0.32, size * 0.14);
           }
         }
       }
 
+      // Arme rétro en bas à droite
       const gunW = 56;
-      const gunH = 44;
-      const gunX = W * 0.58;
-      const gunY = H - gunH + player.recoil;
+      const gunH = 42;
+      const gunX = Math.floor(W * 0.56);
+      const gunY = Math.floor(H - gunH + player.recoil);
 
       if (player.shootFlash > 0) {
         ctx.fillStyle = "#facc15";
