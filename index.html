@@ -10,7 +10,6 @@
       user-select: none;
       -webkit-user-select: none;
       -webkit-tap-highlight-color: transparent;
-      touch-action: none;
     }
     body {
       margin: 0;
@@ -27,6 +26,7 @@
       width: 100%;
       height: 100%;
       image-rendering: pixelated;
+      touch-action: none;
     }
     #hud {
       position: fixed;
@@ -40,7 +40,7 @@
       z-index: 10;
     }
     .hud-box {
-      background: rgba(18, 18, 23, 0.82);
+      background: rgba(18, 18, 23, 0.85);
       border: 2px solid #dc2626;
       padding: 6px 10px;
       font-size: 0.85rem;
@@ -83,6 +83,7 @@
       background: rgba(24, 24, 27, 0.65);
       border: 2px solid rgba(244, 244, 245, 0.25);
       z-index: 20;
+      touch-action: none;
     }
     #stickKnob {
       position: absolute;
@@ -108,6 +109,7 @@
       font-size: 1rem;
       font-weight: bold;
       z-index: 20;
+      touch-action: manipulation;
     }
     #fireBtn:active {
       transform: scale(0.94);
@@ -116,25 +118,27 @@
     #startScreen {
       position: fixed;
       inset: 0;
-      background: rgba(9, 9, 11, 0.92);
+      background: rgba(9, 9, 11, 0.94);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       text-align: center;
       padding: 20px;
-      gap: 14px;
-      z-index: 30;
+      gap: 16px;
+      z-index: 50;
+      touch-action: auto;
     }
     #startBtn {
       background: #dc2626;
       color: #fff;
       border: 2px solid #fca5a5;
-      padding: 12px 24px;
+      padding: 14px 28px;
       font-family: monospace, sans-serif;
-      font-size: 1rem;
+      font-size: 1.05rem;
       font-weight: bold;
       cursor: pointer;
+      touch-action: manipulation;
     }
   </style>
 </head>
@@ -214,20 +218,42 @@
     spawnEnemies();
 
     let running = false;
+    let gameStartedOnce = false;
     let moveInput = { x: 0, y: 0 };
     let stickTouchId = null;
     let lookTouchId = null;
     let lastLookX = 0;
     const keys = {};
 
+    function launchGame() {
+      if (gameStartedOnce) return;
+      gameStartedOnce = true;
+      running = true;
+      startScreen.style.display = "none";
+    }
+
+    startBtn.addEventListener("pointerdown", (e) => {
+      e.stopPropagation();
+      launchGame();
+    });
+    startBtn.addEventListener("touchstart", (e) => {
+      e.stopPropagation();
+      launchGame();
+    }, { passive: true });
+    startBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      launchGame();
+    });
+
     stickZone.addEventListener("touchstart", (e) => {
-      if (stickTouchId !== null) return;
+      if (!running || stickTouchId !== null) return;
       const t = e.changedTouches[0];
       stickTouchId = t.identifier;
       updateStick(t.clientX, t.clientY);
-    }, { passive: false });
+    }, { passive: true });
 
     window.addEventListener("touchmove", (e) => {
+      if (!running) return;
       for (const t of e.changedTouches) {
         if (t.identifier === stickTouchId) {
           updateStick(t.clientX, t.clientY);
@@ -237,7 +263,7 @@
           player.angle += dx * 0.008;
         }
       }
-    }, { passive: false });
+    }, { passive: true });
 
     function resetStick() {
       stickTouchId = null;
@@ -262,6 +288,7 @@
     });
 
     canvas.addEventListener("touchstart", (e) => {
+      if (!running) return;
       for (const t of e.changedTouches) {
         if (t.identifier !== stickTouchId && lookTouchId === null) {
           lookTouchId = t.identifier;
@@ -269,7 +296,7 @@
           break;
         }
       }
-    }, { passive: false });
+    }, { passive: true });
 
     function updateStick(clientX, clientY) {
       const rect = stickZone.getBoundingClientRect();
@@ -453,4 +480,57 @@
 
       const sortedEnemies = enemies
         .filter((e) => e.alive)
-        .map((e) => ({ ...e, dist
+        .map((e) => ({ ...e, dist: Math.hypot(e.x - player.x, e.y - player.y) }))
+        .sort((a, b) => b.dist - a.dist);
+
+      for (const en of sortedEnemies) {
+        const dx = en.x - player.x;
+        const dy = en.y - player.y;
+        let angle = Math.atan2(dy, dx) - player.angle;
+        while (angle > Math.PI) angle -= Math.PI * 2;
+        while (angle < -Math.PI) angle += Math.PI * 2;
+
+        if (Math.abs(angle) < fov * 0.7 && en.dist > 0.2) {
+          const screenX = Math.floor(((angle / (fov / 2)) + 1) * (W / 2));
+          const size = Math.min(H * 1.4, Math.floor((H * 0.75) / en.dist));
+          const top = Math.floor(H / 2 - size / 2);
+          const left = Math.floor(screenX - size / 2);
+
+          const midCol = Math.max(0, Math.min(W - 1, screenX));
+          if (en.dist < zBuffer[midCol]) {
+            ctx.fillStyle = "#ef4444";
+            ctx.fillRect(left + size * 0.2, top + size * 0.15, size * 0.6, size * 0.7);
+            ctx.fillStyle = "#fef08a";
+            ctx.fillRect(left + size * 0.35, top + size * 0.3, size * 0.3, size * 0.15);
+          }
+        }
+      }
+
+      const gunW = 56;
+      const gunH = 44;
+      const gunX = W * 0.58;
+      const gunY = H - gunH + player.recoil;
+
+      if (player.shootFlash > 0) {
+        ctx.fillStyle = "#facc15";
+        ctx.beginPath();
+        ctx.arc(gunX + gunW / 2, gunY - 6, 12, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.fillStyle = "#52525b";
+      ctx.fillRect(gunX + 16, gunY, 24, gunH);
+      ctx.fillStyle = "#a1a1aa";
+      ctx.fillRect(gunX + 22, gunY + 4, 12, gunH * 0.65);
+    }
+
+    function loop() {
+      update();
+      render();
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>
