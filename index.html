@@ -131,29 +131,6 @@
       transform: scale(0.94);
       background: #ef4444;
     }
-    #startScreen {
-      position: fixed;
-      inset: 0;
-      background: rgba(9, 9, 11, 0.94);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 20px;
-      gap: 16px;
-      z-index: 50;
-    }
-    #startBtn {
-      background: #dc2626;
-      color: #fff;
-      border: 2px solid #fca5a5;
-      padding: 14px 28px;
-      font-family: monospace, sans-serif;
-      font-size: 1.05rem;
-      font-weight: bold;
-      cursor: pointer;
-    }
   </style>
 </head>
 <body>
@@ -170,17 +147,6 @@
   <div id="stickZone"><div id="stickKnob"></div></div>
   <button id="fireBtn" type="button">TIR</button>
 
-  <div id="startScreen">
-    <h1 style="margin:0;color:#ef4444;letter-spacing:2px;">TAP RUSH</h1>
-    <p style="margin:0;max-width:340px;color:#d4d4d8;line-height:1.45;">
-      Stick gauche : bouger<br>
-      Glisser sur l'écran : tourner la caméra<br>
-      Bouton TIR : toucher un ennemi à la fois<br>
-      Médikits aléatoires : +25 HP
-    </p>
-    <button id="startBtn" type="button">JOUER</button>
-  </div>
-
   <script>
     (function () {
       const canvas = document.getElementById("view");
@@ -188,8 +154,6 @@
       const killsEl = document.getElementById("kills");
       const hpEl = document.getElementById("hp");
       const msgEl = document.getElementById("msg");
-      const startScreen = document.getElementById("startScreen");
-      const startBtn = document.getElementById("startBtn");
       const stickZone = document.getElementById("stickZone");
       const stickKnob = document.getElementById("stickKnob");
       const fireBtn = document.getElementById("fireBtn");
@@ -199,7 +163,7 @@
       canvas.width = W;
       canvas.height = H;
 
-      // Map 20x20 : 1 = mur rouge, 2 = mur métal
+      // Map 20x20 : 0 = libre, 1 = mur rouge, 2 = mur métal
       const map = [
         [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
         [2,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,2],
@@ -218,12 +182,11 @@
         [2,0,0,0,0,0,0,0,0,2,0,0,1,0,0,0,0,0,0,2],
         [2,0,1,1,0,2,2,0,0,0,0,0,1,0,0,1,1,0,0,2],
         [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,2],
-        [2,0,0,1,0,0,0,2,0,0,1,0,0,0,0,0,0,2,0,2],
+        [2,0,0,0,0,0,0,2,0,0,1,0,0,0,0,0,0,2,0,2],
         [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
         [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2]
       ];
 
-      let running = false;
       let player = {
         x: 3.5,
         y: 17.5,
@@ -283,19 +246,8 @@
 
       addRandomMedkit();
       addRandomMedkit();
-      setInterval(() => {
-        if (running) addRandomMedkit();
-      }, 6000);
+      setInterval(addRandomMedkit, 6000);
 
-      function startGame() {
-        running = true;
-        startScreen.style.display = "none";
-      }
-
-      startBtn.onclick = startGame;
-      startScreen.onclick = startGame;
-
-      // Contrôles tactiles
       let moveX = 0;
       let moveY = 0;
       let stickId = null;
@@ -319,7 +271,7 @@
       }
 
       stickZone.addEventListener("touchstart", (e) => {
-        if (!running || stickId !== null) return;
+        if (stickId !== null) return;
         const t = e.changedTouches[0];
         stickId = t.identifier;
         const r = stickZone.getBoundingClientRect();
@@ -327,7 +279,6 @@
       }, { passive: true });
 
       window.addEventListener("touchmove", (e) => {
-        if (!running) return;
         for (let i = 0; i < e.changedTouches.length; i++) {
           const t = e.changedTouches[i];
           if (t.identifier === stickId) {
@@ -342,7 +293,6 @@
       }, { passive: true });
 
       canvas.addEventListener("touchstart", (e) => {
-        if (!running) return;
         for (let i = 0; i < e.changedTouches.length; i++) {
           const t = e.changedTouches[i];
           if (t.identifier !== stickId && lookId === null) {
@@ -390,7 +340,6 @@
       }
 
       function shoot() {
-        if (!running) return;
         player.shootFlash = 6;
         player.recoil = 10;
 
@@ -454,197 +403,7 @@
       }
 
       function update() {
-        if (!running) return;
-
         let fwd = -moveY;
         let str = moveX;
 
         if (keys["z"] || keys["w"] || keys["arrowup"]) fwd += 1;
-        if (keys["s"] || keys["arrowdown"]) fwd -= 1;
-        if (keys["q"] || keys["a"]) str -= 1;
-        if (keys["d"]) str += 1;
-        if (keys["arrowleft"]) player.angle -= 0.045;
-        if (keys["arrowright"]) player.angle += 0.045;
-
-        const spd = 0.065;
-        const ca = Math.cos(player.angle);
-        const sa = Math.sin(player.angle);
-        const vx = (ca * fwd - sa * str) * spd;
-        const vy = (sa * fwd + ca * str) * spd;
-
-        if (canWalk(player.x + vx, player.y)) player.x += vx;
-        if (canWalk(player.x, player.y + vy)) player.y += vy;
-
-        for (let i = medkits.length - 1; i >= 0; i--) {
-          const mk = medkits[i];
-          if (Math.hypot(mk.x - player.x, mk.y - player.y) < 0.75) {
-            if (player.hp < 100) {
-              const heal = Math.min(25, 100 - player.hp);
-              player.hp += heal;
-              hpEl.textContent = Math.ceil(player.hp);
-              showMsg("+" + Math.ceil(heal) + " HP");
-            } else {
-              showMsg("HP MAX");
-            }
-            medkits.splice(i, 1);
-          }
-        }
-
-        for (let i = 0; i < enemies.length; i++) {
-          const en = enemies[i];
-          if (!en.alive) continue;
-          const dx = player.x - en.x;
-          const dy = player.y - en.y;
-          const d = Math.hypot(dx, dy);
-          if (d > 1.0 && d < 9) {
-            const ex = en.x + (dx / d) * 0.015;
-            const ey = en.y + (dy / d) * 0.015;
-            if (canWalk(ex, ey)) {
-              en.x = ex;
-              en.y = ey;
-            }
-          } else if (d <= 1.0) {
-            player.hp = Math.max(0, player.hp - 0.16);
-            hpEl.textContent = Math.ceil(player.hp);
-            if (player.hp <= 0) {
-              player.hp = 100;
-              player.kills = 0;
-              hpEl.textContent = 100;
-              killsEl.textContent = 0;
-              player.x = 3.5;
-              player.y = 17.5;
-              spawnEnemies();
-            }
-          }
-        }
-
-        if (player.shootFlash > 0) player.shootFlash--;
-        if (player.recoil > 0) player.recoil *= 0.78;
-      }
-
-      function render() {
-        ctx.fillStyle = "#111115";
-        ctx.fillRect(0, 0, W, H / 2);
-        ctx.fillStyle = "#222229";
-        ctx.fillRect(0, H / 2, W, H / 2);
-
-        ctx.fillStyle = "#2f2f38";
-        for (let y = H / 2 + 6; y < H; y += 8) {
-          ctx.fillRect(0, y, W, 1);
-        }
-
-        const fov = Math.PI / 3;
-        const zBuf = new Array(W).fill(24);
-
-        for (let col = 0; col < W; col++) {
-          const camX = (2 * col) / W - 1;
-          const rAng = player.angle + camX * (fov / 2);
-          const rdx = Math.cos(rAng);
-          const rdy = Math.sin(rAng);
-
-          let dist = 0.05;
-          let hit = 2;
-
-          for (let s = 0; s < 340; s++) {
-            dist += 0.05;
-            const tx = Math.floor(player.x + rdx * dist);
-            const ty = Math.floor(player.y + rdy * dist);
-            if (!map[ty] || map[ty][tx] === undefined) {
-              hit = 2;
-              break;
-            }
-            if (map[ty][tx] > 0) {
-              hit = map[ty][tx];
-              break;
-            }
-          }
-
-          const pDist = Math.max(0.08, dist * Math.cos(rAng - player.angle));
-          zBuf[col] = pDist;
-          const wallH = Math.min(H * 2, Math.floor(H / pDist));
-          const startY = Math.floor((H - wallH) / 2);
-          const shade = Math.max(0.25, Math.min(1, 1.2 - pDist / 13));
-
-          if (hit === 1) {
-            ctx.fillStyle = "rgb(" + Math.floor(200 * shade) + "," + Math.floor(38 * shade) + "," + Math.floor(38 * shade) + ")";
-          } else {
-            ctx.fillStyle = "rgb(" + Math.floor(110 * shade) + "," + Math.floor(116 * shade) + "," + Math.floor(136 * shade) + ")";
-          }
-          ctx.fillRect(col, startY, 1, wallH);
-        }
-
-        const sprites = [];
-        for (let i = 0; i < medkits.length; i++) {
-          const mk = medkits[i];
-          sprites.push({ kind: "medkit", x: mk.x, y: mk.y, d: Math.hypot(mk.x - player.x, mk.y - player.y) });
-        }
-        for (let i = 0; i < enemies.length; i++) {
-          const en = enemies[i];
-          if (en.alive) {
-            sprites.push({ kind: "enemy", x: en.x, y: en.y, d: Math.hypot(en.x - player.x, en.y - player.y) });
-          }
-        }
-        sprites.sort((a, b) => b.d - a.d);
-
-        for (let i = 0; i < sprites.length; i++) {
-          const sp = sprites[i];
-          const dx = sp.x - player.x;
-          const dy = sp.y - player.y;
-          let ang = Math.atan2(dy, dx) - player.angle;
-          while (ang > Math.PI) ang -= Math.PI * 2;
-          while (ang < -Math.PI) ang += Math.PI * 2;
-
-          if (Math.abs(ang) < fov * 0.75 && sp.d > 0.25) {
-            const sx = Math.floor(((ang / (fov / 2)) + 1) * (W / 2));
-            const mc = Math.max(0, Math.min(W - 1, sx));
-            if (sp.d >= zBuf[mc]) continue;
-
-            if (sp.kind === "enemy") {
-              const sz = Math.min(H * 1.3, Math.max(6, Math.floor((H * 0.72) / sp.d)));
-              const top = Math.floor(H / 2 - sz / 2);
-              const left = Math.floor(sx - sz / 2);
-              ctx.fillStyle = "#ef4444";
-              ctx.fillRect(left + sz * 0.2, top + sz * 0.15, sz * 0.6, sz * 0.72);
-              ctx.fillStyle = "#fef08a";
-              ctx.fillRect(left + sz * 0.34, top + sz * 0.3, sz * 0.32, sz * 0.14);
-            } else {
-              const sz = Math.min(H * 0.6, Math.max(5, Math.floor((H * 0.32) / sp.d)));
-              const top = Math.floor(H / 2 + sz * 0.35);
-              const left = Math.floor(sx - sz / 2);
-              ctx.fillStyle = "#f8fafc";
-              ctx.fillRect(left, top, sz, sz * 0.75);
-              ctx.fillStyle = "#22c55e";
-              ctx.fillRect(left + sz * 0.4, top + sz * 0.15, sz * 0.2, sz * 0.45);
-              ctx.fillRect(left + sz * 0.27, top + sz * 0.28, sz * 0.46, sz * 0.2);
-            }
-          }
-        }
-
-        const gunW = 56;
-        const gunH = 42;
-        const gunX = Math.floor(W * 0.56);
-        const gunY = Math.floor(H - gunH + player.recoil);
-
-        if (player.shootFlash > 0) {
-          ctx.fillStyle = "#facc15";
-          ctx.beginPath();
-          ctx.arc(gunX + gunW / 2, gunY - 6, 12, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.fillStyle = "#52525b";
-        ctx.fillRect(gunX + 16, gunY, 24, gunH);
-        ctx.fillStyle = "#a1a1aa";
-        ctx.fillRect(gunX + 22, gunY + 4, 12, gunH * 0.65);
-      }
-
-      function loop() {
-        update();
-        render();
-        requestAnimationFrame(loop);
-      }
-
-      loop();
-    })();
-  </script>
-</body>
-      </html>
