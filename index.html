@@ -53,7 +53,7 @@
       top: 48px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(20, 83, 45, 0.9);
+      background: rgba(20, 83, 45, 0.92);
       border: 1px solid #4ade80;
       color: #dcfce7;
       padding: 4px 10px;
@@ -96,7 +96,7 @@
       width: 124px;
       height: 124px;
       border-radius: 50%;
-      background: rgba(24, 24, 27, 0.7);
+      background: rgba(24, 24, 27, 0.72);
       border: 2px solid rgba(244, 244, 245, 0.25);
       z-index: 20;
       touch-action: none;
@@ -108,7 +108,7 @@
       width: 44px;
       height: 44px;
       border-radius: 50%;
-      background: rgba(239, 68, 68, 0.9);
+      background: rgba(239, 68, 68, 0.92);
       border: 2px solid #fca5a5;
     }
     #fireBtn {
@@ -153,7 +153,6 @@
       font-size: 1.05rem;
       font-weight: bold;
       cursor: pointer;
-      touch-action: manipulation;
     }
   </style>
 </head>
@@ -174,479 +173,478 @@
   <div id="startScreen">
     <h1 style="margin:0;color:#ef4444;letter-spacing:2px;">TAP RUSH</h1>
     <p style="margin:0;max-width:340px;color:#d4d4d8;line-height:1.45;">
-      Stick gauche : avancer / reculer / gauche / droite<br>
+      Stick gauche : bouger<br>
       Glisser sur l'écran : tourner la caméra<br>
-      Bouton TIR : toucher un seul ennemi à la fois<br>
-      Ramasse les médikits (+25 HP)
+      Bouton TIR : toucher un ennemi à la fois<br>
+      Médikits aléatoires : +25 HP
     </p>
     <button id="startBtn" type="button">JOUER</button>
   </div>
 
   <script>
-    const canvas = document.getElementById("view");
-    const ctx = canvas.getContext("2d");
-    const killsEl = document.getElementById("kills");
-    const hpEl = document.getElementById("hp");
-    const msgEl = document.getElementById("msg");
-    const startScreen = document.getElementById("startScreen");
-    const startBtn = document.getElementById("startBtn");
-    const stickZone = document.getElementById("stickZone");
-    const stickKnob = document.getElementById("stickKnob");
-    const fireBtn = document.getElementById("fireBtn");
+    (function () {
+      const canvas = document.getElementById("view");
+      const ctx = canvas.getContext("2d");
+      const killsEl = document.getElementById("kills");
+      const hpEl = document.getElementById("hp");
+      const msgEl = document.getElementById("msg");
+      const startScreen = document.getElementById("startScreen");
+      const startBtn = document.getElementById("startBtn");
+      const stickZone = document.getElementById("stickZone");
+      const stickKnob = document.getElementById("stickKnob");
+      const fireBtn = document.getElementById("fireBtn");
 
-    const W = 320;
-    const H = 200;
-    canvas.width = W;
-    canvas.height = H;
+      const W = 320;
+      const H = 200;
+      canvas.width = W;
+      canvas.height = H;
 
-    // Grande map 20x20 : 1 = mur rouge brique, 2 = mur gris métal
-    const map = [
-      [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
-      [2,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,2],
-      [2,0,1,1,0,0,0,0,0,2,0,0,1,1,1,0,0,1,0,2],
-      [2,0,1,0,0,0,2,2,0,0,0,0,1,0,0,0,0,1,0,2],
-      [2,0,0,0,0,0,2,0,0,0,0,0,0,0,0,2,0,0,0,2],
-      [2,0,0,1,1,0,0,0,0,1,1,0,0,0,0,2,0,0,0,2],
-      [2,0,0,0,0,0,0,0,0,1,0,0,0,2,0,0,0,1,0,2],
-      [2,2,0,0,2,2,0,1,0,0,0,0,0,2,0,0,0,1,0,2],
-      [2,0,0,0,0,0,0,1,0,0,2,2,0,0,0,0,0,0,0,2],
-      [2,0,1,0,0,0,0,0,0,0,2,0,0,0,1,1,0,0,2,2],
-      [2,0,1,0,2,0,0,0,0,0,0,0,0,0,1,0,0,0,0,2],
-      [2,0,0,0,2,0,1,1,0,0,0,0,2,0,0,0,0,1,0,2],
-      [2,0,0,0,0,0,1,0,0,0,0,0,2,0,0,0,0,1,0,2],
-      [2,0,2,2,0,0,0,0,0,2,0,0,0,0,2,2,0,0,0,2],
-      [2,0,0,0,0,0,0,0,0,2,0,0,1,0,0,0,0,0,0,2],
-      [2,0,1,1,0,2,2,0,0,0,0,0,1,0,0,1,1,0,0,2],
-      [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,2],
-      [2,0,0,1,0,0,0,2,0,0,1,0,0,0,0,0,0,2,0,2],
-      [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
-      [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2]
-    ];
-
-    let player = {
-      x: 3.5,
-      y: 17.5,
-      angle: -Math.PI / 2,
-      hp: 100,
-      kills: 0,
-      shootFlash: 0,
-      recoil: 0
-    };
-
-    const enemySpots = [
-      [3.5, 2.5], [7.5, 2.5], [15.5, 2.5],
-      [4.5, 6.5], [11.5, 5.5], [17.5, 5.5],
-      [2.5, 9.5], [8.5, 9.5], [15.5, 9.5],
-      [5.5, 13.5], [11.5, 13.5], [17.5, 13.5],
-      [8.5, 17.5], [14.5, 17.5]
-    ];
-
-    let enemies = [];
-    function spawnEnemies() {
-      enemies = enemySpots.map(([x, y]) => ({ x, y, alive: true }));
-    }
-    spawnEnemies();
-
-    // Médikits qui apparaissent aléatoirement sur des cases libres
-    let medkits = [];
-    let msgTimeout = null;
-
-    function showToast(text) {
-      msgEl.textContent = text;
-      msgEl.style.display = "block";
-      clearTimeout(msgTimeout);
-      msgTimeout = setTimeout(() => {
-        msgEl.style.display = "none";
-      }, 1200);
-    }
-
-    function findRandomFreeCell() {
-      for (let attempt = 0; attempt < 60; attempt++) {
-        const cx = 1 + Math.floor(Math.random() * (map[0].length - 2));
-        const cy = 1 + Math.floor(Math.random() * (map.length - 2));
-        if (map[cy][cx] === 0) {
-          const px = cx + 0.5;
-          const py = cy + 0.5;
-          if (Math.hypot(px - player.x, py - player.y) > 2.5) {
-            return { x: px, y: py };
-          }
-        }
-      }
-      return { x: 10.5, y: 10.5 };
-    }
-
-    function spawnMedkit() {
-      if (medkits.length >= 4) return;
-      const pos = findRandomFreeCell();
-      medkits.push({ x: pos.x, y: pos.y, active: true });
-    }
-
-    medkits = [];
-    spawnMedkit();
-    spawnMedkit();
-    setInterval(() => {
-      if (running) spawnMedkit();
-    }, 6500);
-
-    let running = false;
-    let moveInput = { x: 0, y: 0 };
-    let stickTouchId = null;
-    let lookTouchId = null;
-    let lastLookX = 0;
-    const keys = {};
-
-    function launchGame() {
-      running = true;
-      startScreen.style.display = "none";
-    }
-
-    startBtn.addEventListener("click", launchGame);
-    startBtn.addEventListener("pointerup", launchGame);
-
-    stickZone.addEventListener("touchstart", (e) => {
-      if (!running || stickTouchId !== null) return;
-      const t = e.changedTouches[0];
-      stickTouchId = t.identifier;
-      updateStick(t.clientX, t.clientY);
-    }, { passive: true });
-
-    window.addEventListener("touchmove", (e) => {
-      if (!running) return;
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        const t = e.changedTouches[i];
-        if (t.identifier === stickTouchId) {
-          updateStick(t.clientX, t.clientY);
-        } else if (t.identifier === lookTouchId) {
-          const dx = t.clientX - lastLookX;
-          lastLookX = t.clientX;
-          // La caméra ne tourne que quand on glisse pour viser
-          player.angle += dx * 0.011;
-        }
-      }
-    }, { passive: true });
-
-    function resetStick() {
-      stickTouchId = null;
-      moveInput.x = 0;
-      moveInput.y = 0;
-      stickKnob.style.left = "40px";
-      stickKnob.style.top = "40px";
-    }
-
-    function releaseTouches(e) {
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        const t = e.changedTouches[i];
-        if (t.identifier === stickTouchId) resetStick();
-        if (t.identifier === lookTouchId) lookTouchId = null;
-      }
-    }
-
-    window.addEventListener("touchend", releaseTouches);
-    window.addEventListener("touchcancel", releaseTouches);
-
-    canvas.addEventListener("touchstart", (e) => {
-      if (!running) return;
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        const t = e.changedTouches[i];
-        if (t.identifier !== stickTouchId && lookTouchId === null) {
-          lookTouchId = t.identifier;
-          lastLookX = t.clientX;
-          break;
-        }
-      }
-    }, { passive: true });
-
-    function updateStick(clientX, clientY) {
-      const rect = stickZone.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const maxR = 40;
-      let dx = clientX - cx;
-      let dy = clientY - cy;
-      const dist = Math.hypot(dx, dy);
-      if (dist > maxR) {
-        dx = (dx / dist) * maxR;
-        dy = (dy / dist) * maxR;
-      }
-      stickKnob.style.left = (40 + dx) + "px";
-      stickKnob.style.top = (40 + dy) + "px";
-      moveInput.x = dx / maxR;
-      moveInput.y = dy / maxR;
-    }
-
-    window.addEventListener("keydown", (e) => { keys[e.key.toLowerCase()] = true; });
-    window.addEventListener("keyup", (e) => { keys[e.key.toLowerCase()] = false; });
-
-    // Vérifie si un mur coupe la ligne entre le joueur et un point
-    function hasClearLineOfSight(tx, ty) {
-      const dx = tx - player.x;
-      const dy = ty - player.y;
-      const dist = Math.hypot(dx, dy);
-      const steps = Math.ceil(dist / 0.05);
-      for (let i = 1; i < steps; i++) {
-        const t = i / steps;
-        const mx = Math.floor(player.x + dx * t);
-        const my = Math.floor(player.y + dy * t);
-        if (!map[my] || map[my][mx] === undefined || map[my][mx] > 0) {
-          return false;
-        }
-      }
-      return true;
-    }
-
-    function shoot() {
-      if (!running) return;
-      player.shootFlash = 6;
-      player.recoil = 10;
-
-      // Touche UN SEUL ennemi : le plus proche dans le cône de visée et sans mur devant
-      let singleTarget = null;
-      let bestDist = Infinity;
-
-      for (const en of enemies) {
-        if (!en.alive) continue;
-        const dx = en.x - player.x;
-        const dy = en.y - player.y;
-        const dist = Math.hypot(dx, dy);
-        let diff = Math.atan2(dy, dx) - player.angle;
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        while (diff < -Math.PI) diff += Math.PI * 2;
-
-        if (Math.abs(diff) < 0.09 && dist < bestDist && hasClearLineOfSight(en.x, en.y)) {
-          bestDist = dist;
-          singleTarget = en;
-        }
-      }
-
-      if (singleTarget) {
-        singleTarget.alive = false;
-        player.kills++;
-        killsEl.textContent = player.kills;
-
-        if (Math.random() < 0.45) {
-          medkits.push({ x: singleTarget.x, y: singleTarget.y, active: true });
-        }
-
-        setTimeout(() => {
-          const pos = findRandomFreeCell();
-          singleTarget.x = pos.x;
-          singleTarget.y = pos.y;
-          singleTarget.alive = true;
-        }, 3200);
-      }
-    }
-
-    fireBtn.addEventListener("touchstart", (e) => {
-      e.preventDefault();
-      shoot();
-    }, { passive: false });
-    fireBtn.addEventListener("mousedown", shoot);
-
-    function canMove(nx, ny) {
-      const r = 0.24;
-      const checks = [
-        [nx - r, ny - r], [nx + r, ny - r],
-        [nx - r, ny + r], [nx + r, ny + r]
+      // Map 20x20 : 1 = mur rouge, 2 = mur métal
+      const map = [
+        [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
+        [2,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,2],
+        [2,0,1,1,0,0,0,0,0,2,0,0,1,1,1,0,0,1,0,2],
+        [2,0,1,0,0,0,2,2,0,0,0,0,1,0,0,0,0,1,0,2],
+        [2,0,0,0,0,0,2,0,0,0,0,0,0,0,0,2,0,0,0,2],
+        [2,0,0,1,1,0,0,0,0,1,1,0,0,0,0,2,0,0,0,2],
+        [2,0,0,0,0,0,0,0,0,1,0,0,0,2,0,0,0,1,0,2],
+        [2,2,0,0,2,2,0,1,0,0,0,0,0,2,0,0,0,1,0,2],
+        [2,0,0,0,0,0,0,1,0,0,2,2,0,0,0,0,0,0,0,2],
+        [2,0,1,0,0,0,0,0,0,0,2,0,0,0,1,1,0,0,2,2],
+        [2,0,1,0,2,0,0,0,0,0,0,0,0,0,1,0,0,0,0,2],
+        [2,0,0,0,2,0,1,1,0,0,0,0,2,0,0,0,0,1,0,2],
+        [2,0,0,0,0,0,1,0,0,0,0,0,2,0,0,0,0,1,0,2],
+        [2,0,2,2,0,0,0,0,0,2,0,0,0,0,2,2,0,0,0,2],
+        [2,0,0,0,0,0,0,0,0,2,0,0,1,0,0,0,0,0,0,2],
+        [2,0,1,1,0,2,2,0,0,0,0,0,1,0,0,1,1,0,0,2],
+        [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,2],
+        [2,0,0,1,0,0,0,2,0,0,1,0,0,0,0,0,0,2,0,2],
+        [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+        [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2]
       ];
-      for (const [cx, cy] of checks) {
-        const mx = Math.floor(cx);
-        const my = Math.floor(cy);
-        if (!map[my] || map[my][mx] === undefined || map[my][mx] !== 0) {
-          return false;
-        }
+
+      let running = false;
+      let player = {
+        x: 3.5,
+        y: 17.5,
+        angle: -Math.PI / 2,
+        hp: 100,
+        kills: 0,
+        shootFlash: 0,
+        recoil: 0
+      };
+
+      const enemySpots = [
+        [3.5, 2.5], [7.5, 2.5], [15.5, 2.5],
+        [4.5, 6.5], [11.5, 5.5], [17.5, 5.5],
+        [2.5, 9.5], [8.5, 9.5], [15.5, 9.5],
+        [5.5, 13.5], [11.5, 13.5], [17.5, 13.5],
+        [8.5, 17.5], [14.5, 17.5]
+      ];
+
+      let enemies = [];
+      function spawnEnemies() {
+        enemies = enemySpots.map(([x, y]) => ({ x, y, alive: true }));
       }
-      return true;
-    }
+      spawnEnemies();
 
-    function update() {
-      if (!running) return;
+      let medkits = [];
+      let msgTimer = null;
 
-      // Stick gauche : avant/arrière + déplacement latéral (strafe), sans tourner la caméra
-      let forward = -moveInput.y;
-      let strafe = moveInput.x;
+      function showMsg(txt) {
+        msgEl.textContent = txt;
+        msgEl.style.display = "block";
+        clearTimeout(msgTimer);
+        msgTimer = setTimeout(() => {
+          msgEl.style.display = "none";
+        }, 1200);
+      }
 
-      if (keys["z"] || keys["w"] || keys["arrowup"]) forward += 1;
-      if (keys["s"] || keys["arrowdown"]) forward -= 1;
-      if (keys["q"] || keys["a"]) strafe -= 1;
-      if (keys["d"]) strafe += 1;
-      if (keys["arrowleft"]) player.angle -= 0.045;
-      if (keys["arrowright"]) player.angle += 0.045;
-
-      const speed = 0.065;
-      const cosA = Math.cos(player.angle);
-      const sinA = Math.sin(player.angle);
-      const perpX = -sinA;
-      const perpY = cosA;
-
-      const vx = (cosA * forward + perpX * strafe) * speed;
-      const vy = (sinA * forward + perpY * strafe) * speed;
-
-      const nx = player.x + vx;
-      const ny = player.y + vy;
-      if (canMove(nx, player.y)) player.x = nx;
-      if (canMove(player.x, ny)) player.y = ny;
-
-      // Ramassage des médikits
-      for (let i = medkits.length - 1; i >= 0; i--) {
-        const mk = medkits[i];
-        if (!mk.active) continue;
-        if (Math.hypot(mk.x - player.x, mk.y - player.y) < 0.75) {
-          if (player.hp < 100) {
-            const heal = Math.min(25, 100 - player.hp);
-            player.hp += heal;
-            hpEl.textContent = Math.ceil(player.hp);
-            showToast("+" + Math.ceil(heal) + " HP");
-          } else {
-            showToast("HP MAX");
+      function randomFreePos() {
+        for (let i = 0; i < 60; i++) {
+          const cx = 1 + Math.floor(Math.random() * (map[0].length - 2));
+          const cy = 1 + Math.floor(Math.random() * (map.length - 2));
+          if (map[cy][cx] === 0) {
+            const px = cx + 0.5;
+            const py = cy + 0.5;
+            if (Math.hypot(px - player.x, py - player.y) > 2.2) {
+              return { x: px, y: py };
+            }
           }
-          medkits.splice(i, 1);
+        }
+        return { x: 10.5, y: 10.5 };
+      }
+
+      function addRandomMedkit() {
+        if (medkits.length >= 4) return;
+        const p = randomFreePos();
+        medkits.push({ x: p.x, y: p.y });
+      }
+
+      addRandomMedkit();
+      addRandomMedkit();
+      setInterval(() => {
+        if (running) addRandomMedkit();
+      }, 6000);
+
+      function startGame() {
+        running = true;
+        startScreen.style.display = "none";
+      }
+
+      startBtn.onclick = startGame;
+      startScreen.onclick = startGame;
+
+      // Contrôles tactiles
+      let moveX = 0;
+      let moveY = 0;
+      let stickId = null;
+      let lookId = null;
+      let lastLookX = 0;
+      const keys = {};
+
+      function setKnob(cx, cy, tx, ty) {
+        const maxR = 40;
+        let dx = tx - cx;
+        let dy = ty - cy;
+        const d = Math.hypot(dx, dy);
+        if (d > maxR) {
+          dx = (dx / d) * maxR;
+          dy = (dy / d) * maxR;
+        }
+        stickKnob.style.left = (40 + dx) + "px";
+        stickKnob.style.top = (40 + dy) + "px";
+        moveX = dx / maxR;
+        moveY = dy / maxR;
+      }
+
+      stickZone.addEventListener("touchstart", (e) => {
+        if (!running || stickId !== null) return;
+        const t = e.changedTouches[0];
+        stickId = t.identifier;
+        const r = stickZone.getBoundingClientRect();
+        setKnob(r.left + r.width / 2, r.top + r.height / 2, t.clientX, t.clientY);
+      }, { passive: true });
+
+      window.addEventListener("touchmove", (e) => {
+        if (!running) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const t = e.changedTouches[i];
+          if (t.identifier === stickId) {
+            const r = stickZone.getBoundingClientRect();
+            setKnob(r.left + r.width / 2, r.top + r.height / 2, t.clientX, t.clientY);
+          } else if (t.identifier === lookId) {
+            const dx = t.clientX - lastLookX;
+            lastLookX = t.clientX;
+            player.angle += dx * 0.011;
+          }
+        }
+      }, { passive: true });
+
+      canvas.addEventListener("touchstart", (e) => {
+        if (!running) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const t = e.changedTouches[i];
+          if (t.identifier !== stickId && lookId === null) {
+            lookId = t.identifier;
+            lastLookX = t.clientX;
+            break;
+          }
+        }
+      }, { passive: true });
+
+      function endTouch(e) {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const t = e.changedTouches[i];
+          if (t.identifier === stickId) {
+            stickId = null;
+            moveX = 0;
+            moveY = 0;
+            stickKnob.style.left = "40px";
+            stickKnob.style.top = "40px";
+          }
+          if (t.identifier === lookId) {
+            lookId = null;
+          }
         }
       }
 
-      // Ennemis qui se rapprochent quand ils sont proches
-      for (const en of enemies) {
-        if (!en.alive) continue;
-        const dx = player.x - en.x;
-        const dy = player.y - en.y;
+      window.addEventListener("touchend", endTouch);
+      window.addEventListener("touchcancel", endTouch);
+
+      window.addEventListener("keydown", (e) => { keys[e.key.toLowerCase()] = true; });
+      window.addEventListener("keyup", (e) => { keys[e.key.toLowerCase()] = false; });
+
+      function clearPath(tx, ty) {
+        const dx = tx - player.x;
+        const dy = ty - player.y;
         const dist = Math.hypot(dx, dy);
-        if (dist > 1.0 && dist < 9) {
-          const ex = en.x + (dx / dist) * 0.016;
-          const ey = en.y + (dy / dist) * 0.016;
-          if (canMove(ex, ey)) {
-            en.x = ex;
-            en.y = ey;
-          }
-        } else if (dist <= 1.0) {
-          player.hp = Math.max(0, player.hp - 0.16);
-          hpEl.textContent = Math.ceil(player.hp);
-          if (player.hp <= 0) {
-            player.hp = 100;
-            player.kills = 0;
-            hpEl.textContent = 100;
-            killsEl.textContent = 0;
-            player.x = 3.5;
-            player.y = 17.5;
-            spawnEnemies();
-          }
+        const steps = Math.max(1, Math.ceil(dist / 0.05));
+        for (let i = 1; i < steps; i++) {
+          const f = i / steps;
+          const mx = Math.floor(player.x + dx * f);
+          const my = Math.floor(player.y + dy * f);
+          if (!map[my] || map[my][mx] > 0) return false;
         }
+        return true;
       }
 
-      if (player.shootFlash > 0) player.shootFlash--;
-      if (player.recoil > 0) player.recoil *= 0.78;
-    }
+      function shoot() {
+        if (!running) return;
+        player.shootFlash = 6;
+        player.recoil = 10;
 
-    function render() {
-      ctx.fillStyle = "#111115";
-      ctx.fillRect(0, 0, W, H / 2);
-      ctx.fillStyle = "#222229";
-      ctx.fillRect(0, H / 2, W, H / 2);
+        let target = null;
+        let bestD = Infinity;
 
-      ctx.fillStyle = "#2f2f38";
-      for (let y = H / 2 + 6; y < H; y += 8) {
-        ctx.fillRect(0, y, W, 1);
-      }
+        for (let i = 0; i < enemies.length; i++) {
+          const en = enemies[i];
+          if (!en.alive) continue;
+          const dx = en.x - player.x;
+          const dy = en.y - player.y;
+          const d = Math.hypot(dx, dy);
+          let diff = Math.atan2(dy, dx) - player.angle;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
 
-      const fov = Math.PI / 3;
-      const zBuffer = new Array(W).fill(24);
-      const step = 0.05;
-      const maxSteps = 340;
-
-      for (let col = 0; col < W; col++) {
-        const cameraX = (2 * col) / W - 1;
-        const rayAngle = player.angle + cameraX * (fov / 2);
-        const rayDirX = Math.cos(rayAngle);
-        const rayDirY = Math.sin(rayAngle);
-
-        let dist = 0.05;
-        let hit = 2;
-
-        for (let s = 0; s < maxSteps; s++) {
-          dist += step;
-          const tx = Math.floor(player.x + rayDirX * dist);
-          const ty = Math.floor(player.y + rayDirY * dist);
-          if (!map[ty] || map[ty][tx] === undefined) {
-            hit = 2;
-            break;
-          }
-          if (map[ty][tx] > 0) {
-            hit = map[ty][tx];
-            break;
+          if (Math.abs(diff) < 0.09 && d < bestD && clearPath(en.x, en.y)) {
+            bestD = d;
+            target = en;
           }
         }
 
-        const perpDist = Math.max(0.08, dist * Math.cos(rayAngle - player.angle));
-        zBuffer[col] = perpDist;
-        const wallH = Math.min(H * 2, Math.floor(H / perpDist));
-        const drawStart = Math.floor((H - wallH) / 2);
-        const shade = Math.max(0.25, Math.min(1, 1.2 - perpDist / 13));
+        if (target) {
+          target.alive = false;
+          player.kills++;
+          killsEl.textContent = player.kills;
 
-        if (hit === 1) {
-          ctx.fillStyle = `rgb(${Math.floor(200 * shade)}, ${Math.floor(38 * shade)}, ${Math.floor(38 * shade)})`;
-        } else {
-          ctx.fillStyle = `rgb(${Math.floor(110 * shade)}, ${Math.floor(116 * shade)}, ${Math.floor(136 * shade)})`;
+          if (Math.random() < 0.45) {
+            medkits.push({ x: target.x, y: target.y });
+          }
+
+          setTimeout(() => {
+            const p = randomFreePos();
+            target.x = p.x;
+            target.y = p.y;
+            target.alive = true;
+          }, 3000);
         }
-        ctx.fillRect(col, drawStart, 1, wallH);
       }
 
-      // Objets à dessiner (médikits + ennemis) triés du plus loin au plus proche
-      const sprites = [];
+      fireBtn.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        shoot();
+      }, { passive: false });
+      fireBtn.addEventListener("click", shoot);
 
-      for (const mk of medkits) {
-        if (!mk.active) continue;
-        sprites.push({
-          kind: "medkit",
-          x: mk.x,
-          y: mk.y,
-          dist: Math.hypot(mk.x - player.x, mk.y - player.y)
-        });
-      }
-
-      for (const en of enemies) {
-        if (!en.alive) continue;
-        sprites.push({
-          kind: "enemy",
-          x: en.x,
-          y: en.y,
-          dist: Math.hypot(en.x - player.x, en.y - player.y)
-        });
-      }
-
-      sprites.sort((a, b) => b.dist - a.dist);
-
-      for (const sp of sprites) {
-        const dx = sp.x - player.x;
-        const dy = sp.y - player.y;
-        let angle = Math.atan2(dy, dx) - player.angle;
-        while (angle > Math.PI) angle -= Math.PI * 2;
-        while (angle < -Math.PI) angle += Math.PI * 2;
-
-        if (Math.abs(angle) < fov * 0.75 && sp.dist > 0.25) {
-          const screenX = Math.floor(((angle / (fov / 2)) + 1) * (W / 2));
-          const midCol = Math.max(0, Math.min(W - 1, screenX));
-          if (sp.dist >= zBuffer[midCol]) continue;
-
-          if (sp.kind === "enemy") {
-            const size = Math.min(H * 1.3, Math.max(6, Math.floor((H * 0.72) / sp.dist)));
-            const top = Math.floor(H / 2 - size / 2);
-            const left = Math.floor(screenX - size / 2);
-            ctx.fillStyle = "#ef4444";
-            ctx.fillRect(left + size * 0.2, top + size * 0.15, size * 0.6, size * 0.72);
-            ctx.fillStyle = "#fef08a";
-            ctx.fillRect(left + size * 0.34, top + size * 0.3, size * 0.32, size * 0.14);
-          } else if (sp.kind === "medkit") {
-            const size = Math.min(H * 0.6, Math.max(5, Math.floor((H * 0.32) / sp.dist)));
-            const top = Math.floor(H / 2 + size * 0.35);
-            const left = Math.floor(screenX - size / 2);
-            ctx.fillStyle = "#f8fafc";
-            ctx.fillRect(left, top, size, size * 0.75);
-            ctx.fillStyle = "#22c55e";
-            ctx.fillRect(left + size * 0.4, top + size * 0.15, size * 0.2, size * 0.45);
-            ctx.fillRect(left + size * 0.27, top + size * 0.28, size * 0.46, size * 0.2);
+      function canWalk(nx, ny) {
+        const r = 0.24;
+        const pts = [
+          [nx - r, ny - r], [nx + r, ny - r],
+          [nx - r, ny + r], [nx + r, ny + r]
+        ];
+        for (let i = 0; i < pts.length; i++) {
+          const mx = Math.floor(pts[i][0]);
+          const my = Math.floor(pts[i][1]);
+          if (!map[my] || map[my][mx] === undefined || map[my][mx] !== 0) {
+            return false;
           }
         }
+        return true;
       }
 
-      // Arme rétro
-      const gunW = 56;
-      const gunH = 42;
-      const gunX = Math.floor(W * 0.56);
+      function update() {
+        if (!running) return;
+
+        let fwd = -moveY;
+        let str = moveX;
+
+        if (keys["z"] || keys["w"] || keys["arrowup"]) fwd += 1;
+        if (keys["s"] || keys["arrowdown"]) fwd -= 1;
+        if (keys["q"] || keys["a"]) str -= 1;
+        if (keys["d"]) str += 1;
+        if (keys["arrowleft"]) player.angle -= 0.045;
+        if (keys["arrowright"]) player.angle += 0.045;
+
+        const spd = 0.065;
+        const ca = Math.cos(player.angle);
+        const sa = Math.sin(player.angle);
+        const vx = (ca * fwd - sa * str) * spd;
+        const vy = (sa * fwd + ca * str) * spd;
+
+        if (canWalk(player.x + vx, player.y)) player.x += vx;
+        if (canWalk(player.x, player.y + vy)) player.y += vy;
+
+        for (let i = medkits.length - 1; i >= 0; i--) {
+          const mk = medkits[i];
+          if (Math.hypot(mk.x - player.x, mk.y - player.y) < 0.75) {
+            if (player.hp < 100) {
+              const heal = Math.min(25, 100 - player.hp);
+              player.hp += heal;
+              hpEl.textContent = Math.ceil(player.hp);
+              showMsg("+" + Math.ceil(heal) + " HP");
+            } else {
+              showMsg("HP MAX");
+            }
+            medkits.splice(i, 1);
+          }
+        }
+
+        for (let i = 0; i < enemies.length; i++) {
+          const en = enemies[i];
+          if (!en.alive) continue;
+          const dx = player.x - en.x;
+          const dy = player.y - en.y;
+          const d = Math.hypot(dx, dy);
+          if (d > 1.0 && d < 9) {
+            const ex = en.x + (dx / d) * 0.015;
+            const ey = en.y + (dy / d) * 0.015;
+            if (canWalk(ex, ey)) {
+              en.x = ex;
+              en.y = ey;
+            }
+          } else if (d <= 1.0) {
+            player.hp = Math.max(0, player.hp - 0.16);
+            hpEl.textContent = Math.ceil(player.hp);
+            if (player.hp <= 0) {
+              player.hp = 100;
+              player.kills = 0;
+              hpEl.textContent = 100;
+              killsEl.textContent = 0;
+              player.x = 3.5;
+              player.y = 17.5;
+              spawnEnemies();
+            }
+          }
+        }
+
+        if (player.shootFlash > 0) player.shootFlash--;
+        if (player.recoil > 0) player.recoil *= 0.78;
+      }
+
+      function render() {
+        ctx.fillStyle = "#111115";
+        ctx.fillRect(0, 0, W, H / 2);
+        ctx.fillStyle = "#222229";
+        ctx.fillRect(0, H / 2, W, H / 2);
+
+        ctx.fillStyle = "#2f2f38";
+        for (let y = H / 2 + 6; y < H; y += 8) {
+          ctx.fillRect(0, y, W, 1);
+        }
+
+        const fov = Math.PI / 3;
+        const zBuf = new Array(W).fill(24);
+
+        for (let col = 0; col < W; col++) {
+          const camX = (2 * col) / W - 1;
+          const rAng = player.angle + camX * (fov / 2);
+          const rdx = Math.cos(rAng);
+          const rdy = Math.sin(rAng);
+
+          let dist = 0.05;
+          let hit = 2;
+
+          for (let s = 0; s < 340; s++) {
+            dist += 0.05;
+            const tx = Math.floor(player.x + rdx * dist);
+            const ty = Math.floor(player.y + rdy * dist);
+            if (!map[ty] || map[ty][tx] === undefined) {
+              hit = 2;
+              break;
+            }
+            if (map[ty][tx] > 0) {
+              hit = map[ty][tx];
+              break;
+            }
+          }
+
+          const pDist = Math.max(0.08, dist * Math.cos(rAng - player.angle));
+          zBuf[col] = pDist;
+          const wallH = Math.min(H * 2, Math.floor(H / pDist));
+          const startY = Math.floor((H - wallH) / 2);
+          const shade = Math.max(0.25, Math.min(1, 1.2 - pDist / 13));
+
+          if (hit === 1) {
+            ctx.fillStyle = "rgb(" + Math.floor(200 * shade) + "," + Math.floor(38 * shade) + "," + Math.floor(38 * shade) + ")";
+          } else {
+            ctx.fillStyle = "rgb(" + Math.floor(110 * shade) + "," + Math.floor(116 * shade) + "," + Math.floor(136 * shade) + ")";
+          }
+          ctx.fillRect(col, startY, 1, wallH);
+        }
+
+        const sprites = [];
+        for (let i = 0; i < medkits.length; i++) {
+          const mk = medkits[i];
+          sprites.push({ kind: "medkit", x: mk.x, y: mk.y, d: Math.hypot(mk.x - player.x, mk.y - player.y) });
+        }
+        for (let i = 0; i < enemies.length; i++) {
+          const en = enemies[i];
+          if (en.alive) {
+            sprites.push({ kind: "enemy", x: en.x, y: en.y, d: Math.hypot(en.x - player.x, en.y - player.y) });
+          }
+        }
+        sprites.sort((a, b) => b.d - a.d);
+
+        for (let i = 0; i < sprites.length; i++) {
+          const sp = sprites[i];
+          const dx = sp.x - player.x;
+          const dy = sp.y - player.y;
+          let ang = Math.atan2(dy, dx) - player.angle;
+          while (ang > Math.PI) ang -= Math.PI * 2;
+          while (ang < -Math.PI) ang += Math.PI * 2;
+
+          if (Math.abs(ang) < fov * 0.75 && sp.d > 0.25) {
+            const sx = Math.floor(((ang / (fov / 2)) + 1) * (W / 2));
+            const mc = Math.max(0, Math.min(W - 1, sx));
+            if (sp.d >= zBuf[mc]) continue;
+
+            if (sp.kind === "enemy") {
+              const sz = Math.min(H * 1.3, Math.max(6, Math.floor((H * 0.72) / sp.d)));
+              const top = Math.floor(H / 2 - sz / 2);
+              const left = Math.floor(sx - sz / 2);
+              ctx.fillStyle = "#ef4444";
+              ctx.fillRect(left + sz * 0.2, top + sz * 0.15, sz * 0.6, sz * 0.72);
+              ctx.fillStyle = "#fef08a";
+              ctx.fillRect(left + sz * 0.34, top + sz * 0.3, sz * 0.32, sz * 0.14);
+            } else {
+              const sz = Math.min(H * 0.6, Math.max(5, Math.floor((H * 0.32) / sp.d)));
+              const top = Math.floor(H / 2 + sz * 0.35);
+              const left = Math.floor(sx - sz / 2);
+              ctx.fillStyle = "#f8fafc";
+              ctx.fillRect(left, top, sz, sz * 0.75);
+              ctx.fillStyle = "#22c55e";
+              ctx.fillRect(left + sz * 0.4, top + sz * 0.15, sz * 0.2, sz * 0.45);
+              ctx.fillRect(left + sz * 0.27, top + sz * 0.28, sz * 0.46, sz * 0.2);
+            }
+          }
+        }
+
+        const gunW = 56;
+        const gunH = 42;
+        const gunX = Math.floor(W * 0.56);
+        const gunY = Math.floor(H - gunH + player.recoil);
+
+        if (player.shootFlash > 0) {
+          ctx.fillStyle = "#facc15";
+          ctx.beginPath();
+          ctx.arc(gunX + gunW / 2, gunY - 6, 12, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.fillStyle = "#52525b";
+        ctx.fillRect(gunX + 16, gunY, 24, gunH);
+        ctx.fillStyle = "#a1a1aa";
+        ctx.fillRect(gunX + 22, gunY + 4, 12, gunH * 0.65);
+      }
+
+      function loop() {
+        update();
+        render();
+        requestAnimationFrame(loop);
+      }
+
+      loop();
+    })();
+  </script>
+</body>
+      </html>
